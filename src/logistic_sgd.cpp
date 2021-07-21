@@ -1,13 +1,8 @@
 #include "../include/logistic_sgd.h"
-#include "../Communication/reduce_operator.h"
-#include "../Communication/ring_allreduce.h"
-#include "../include/common.h"
-#include "../include/prob.h"
 #include "mpi.h"
 #include <cmath>
+#include <cstdlib>
 #include <iostream>
-#include <stdlib.h>
-#include <time.h>
 using namespace std;
 
 logistic_sgd::logistic_sgd(problem *prob, int proNum, int myId, int nodes) {
@@ -36,7 +31,7 @@ logistic_sgd::~logistic_sgd() {
   delete[] w;
   delete[] gradient;
   delete[] average_w;
-  cout << myId << " DELETE logistic_sgd" << endl;
+//  cout << myId << " DELETE logistic_sgd" << endl;
 }
 
 double learning_rate_decay(int step, double optimizer_max_iter_num = 200,
@@ -53,8 +48,8 @@ void logistic_sgd::train(int batch_size, int maxiteration, double ratio,
   double ex = 0;
   double ex1 = 0;
   double loss = 0;
-  clock_t Cal_start, Cal_end;
-  clock_t Comm_start, Comm_end;
+  double Cal_start, Cal_end;
+  double Comm_start, Comm_end;
 
   if (myId == 0)
     printf("%3s %12s %12s %12s %12s %12s \n", "#", "learning_rate", "current",
@@ -69,7 +64,7 @@ void logistic_sgd::train(int batch_size, int maxiteration, double ratio,
     for (int j = 0; j < num; j += batch_size) {
       int counts = 0;
       iter++;
-      Cal_start = clock();
+      Cal_start = MPI_Wtime();
       learning_rate = learning_rate_decay(iter, maxiteration);
       for (int k = j; k < batch_size + j && k < num; k++) {
         ex = exp(-1.0 * prob->y[k] * vector_mul_vector(prob->x, k));
@@ -87,11 +82,11 @@ void logistic_sgd::train(int batch_size, int maxiteration, double ratio,
       for (int i = 0; i < dim; i++) { //每次训练将两个梯度数组置零
         gradient[i] = 0;
       }
-      Cal_end = clock();
+      Cal_end = MPI_Wtime();
 
-      Comm_start = clock();
+      Comm_start = MPI_Wtime();
       MPI_Allreduce(w, average_w, dim, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-      Comm_end = clock();
+      Comm_end = MPI_Wtime();
 
       for (int m = 0; m < dim; m++) {
         w[m] = average_w[m] / proNum;
@@ -111,9 +106,9 @@ void logistic_sgd::train(int batch_size, int maxiteration, double ratio,
             ++counter;
           }
         }
-        double epch_cal = (double)(Cal_end - Cal_start) / CLOCKS_PER_SEC;
+        double epch_cal = Cal_end - Cal_start;
         cal_time += epch_cal;
-        double epch_com = (double)(Comm_end - Comm_start) / CLOCKS_PER_SEC;
+        double epch_com = Comm_end - Comm_start;
         comm_time += epch_com;
         printf("%3d %12f %12f %12f %12f %12f\n", iter, learning_rate,
                counter * 100.0 / testprob->l, loss / testprob->l, epch_com,

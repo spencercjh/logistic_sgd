@@ -64,3 +64,5 @@ _deps
 # Local History for Visual Studio Code
 .history/
 
+*.log
+bin

@@ -1,3 +1,4 @@
 #!/bin/sh
+current=$(date "+%Y_%m_%d_%H%M")
 
-mpirun -n 4 /home/spencercjh/CLionProjects/logistic_sgd_2020/bin/logistic_sgd -file ./logSGD.conf
+mpirun -n 4 ../bin/logistic_sgd -file ./logSGD.conf >log_"$current".log

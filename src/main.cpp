@@ -1,26 +1,30 @@
 #include "../include/logistic_sgd.h"
 #include "../include/properties.h"
-#include "../utils/utils.h"
 #include "mpi.h"
-#include <ctime>
 #include <iostream>
+#include <vector>
 
 using namespace std;
 
-void Orgin_SGD(int argc, char **argv) {
+void Origin_SGD(int argc, char **argv) {
   int myId, proNum;
   int maxDim;
   char fileName[100];
-  char testfileName[100];
-  clock_t start_time, end_time;
+  double start_time, end_time;
 
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &myId);
   MPI_Comm_size(MPI_COMM_WORLD, &proNum);
+
+  char processor_name[MPI_MAX_PROCESSOR_NAME];
+  int name_len;
+  MPI_Get_processor_name(processor_name, &name_len);
+  printf("processor %s, rank %d out of %d processors\n", processor_name, myId,
+         proNum);
+
   Properties properties(argc, argv);
 
   int batch_size = properties.GetInt("batchSize");
-  //    int epoch_num = properties.GetInt("epochNum");
   int maxIteration = properties.GetInt(
       "maxIteration"); //最后一个节点的数据量不一定和其他节点相同
   std::string train_data_path = properties.GetString("train_data_path");
@@ -29,9 +33,6 @@ void Orgin_SGD(int argc, char **argv) {
   //训练数据
   sprintf(fileName, train_data_path.c_str(), proNum, myId);
   string dataname(fileName);
-  //测试数据
-  sprintf(testfileName, test_data_path.c_str());
-  string testdataname(testfileName);
 
   problem *prob = new problem(fileName);
   maxDim = prob->n;
@@ -44,24 +45,23 @@ void Orgin_SGD(int argc, char **argv) {
   prob->n = maxDim;
   logistic_sgd log_sgd(prob, proNum, myId, 4);
 
-  problem *testprob = new problem(testfileName);
-  log_sgd.testprob = testprob;
+  problem *test_prob = new problem(test_data_path.c_str());
+  log_sgd.testprob = test_prob;
 
   if (myId == 0)
     cout << "max dim：" << maxDim << endl;
 
-  start_time = clock();
+  start_time = MPI_Wtime();
   log_sgd.train(batch_size, maxIteration, 0, 0);
-  end_time = clock();
+  end_time = MPI_Wtime();
 
   MPI_Finalize();
 
   if (myId == 0) {
-    cout << "run_time:" << (double)(end_time - start_time) / CLOCKS_PER_SEC
-         << " "
+    cout << "run_time:" << end_time - start_time << " "
          << "com_time:" << log_sgd.comm_time << " "
          << "cal_time:" << log_sgd.cal_time << " " << endl;
   }
 }
 
-int main(int argc, char **argv) { Orgin_SGD(argc, argv); }
+int main(int argc, char **argv) { Origin_SGD(argc, argv); }
